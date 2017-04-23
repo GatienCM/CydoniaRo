@@ -1,0 +1,54 @@
+-	script	exp_boost	-1,{
+
+OnPCLogoutEvent:
+	if( compare(.maps$,"|"+strcharinfo(3)+"|") )
+		onout = gettimetick(2);
+	end;
+	
+OnPCLoginEvent:
+	if( onout ) {
+		if( getstatus(sc_expboost,1) <= .exp_rate ) {
+			function t {
+				function s;
+					set .@left, getarg(0);
+					if ( .@left <= 0 ) return getarg(0);
+					set .@day, .@left / 86400;
+					set .@hour, .@left % 86400 / 3600;
+					set .@min, .@left % 3600 / 60;
+					set .@sec, .@left % 60;
+					return (
+						( .@day ? .@day +" day"+ s( .@day ) : "" ) +
+						( .@hour ? .@hour +" hour"+ s( .@hour ) : "" ) +
+						( .@min ? .@min +" min"+ s( .@min ) : "" ) +
+						( .@sec ? .@sec +" sec"+ s( .@sec,1 ) : "" )
+					);
+				function s {
+					return (
+						( getarg(0) > 1 ? "s" : "" ) +
+						( getarg(1,0) ? "" : " " )
+					);
+				}
+			}
+			.@time_left = getstatus(sc_expboost,5) + ( gettimetick(2) - onout ) * 1000;
+			.@exp_boost = .@time_left > .time_limit ? .time_limit : .@time_left;
+			sc_start sc_expboost, .@exp_boost, .exp_rate;
+			message strcharinfo(0),"Exp has increased by "+.exp_rate+"% for "+t(.@exp_boost/1000)+".";
+			onout = 0;
+		}
+	}
+	end;
+		
+OnInit:
+	.maps$ = "|yuno_in01|yuno_in02|yuno_in03|yuno_in04|yuno_in05"+ //Inn Maps...
+                 "|ama_in01|ama_in02|sec_in01|sec_in02|gon_in|um_in"+
+	         "|nif_in|lou_in01|lou_in02|jawaii_in|payon_in01"+
+	         "|payon_in02|payon_in03|ayo_in01|ayo_in02|ein_in01"+
+	         "|lhz_in01|lhz_in02|lhz_in03|hu_in01|ra_in01|ve_in"+
+                 "|ve_in02|nameless_in|mosk_in|man_in01|spl_in01"+
+	         "|spl_in02|bra_in01|dic_in01|dew_in01|mal_in01"+
+	         "|mal_in02|ma_in01|ecl_in01|ecl_in02|ecl_in03"+
+	         "|ecl_in04|prt_in|";
+			 
+	.exp_rate = 10; //Exp Boost in percent. ( 1 = 1% )
+	.time_limit = 86400 * 1000; //Maximum time in milliseconds.
+}
