@@ -1,0 +1,307 @@
+//
+//
+//	Author		Goddameit
+//	Version		2014/05/31
+//	Web		http://goo.gl/0vY9GV
+//
+//
+function	script	Job_Manager_Main_Func	{
+	if( playerattached() )
+	{
+		deletearray @job_info$[0],getarraysize(@job_info$);
+		deletearray .@item_need[0],getarraysize(.@item_need);
+		deletearray .@item_cast[0],getarraysize(.@item_cast);
+	}
+//--------------------------------------------------------------------//
+//--------------------------------------------------------------------//
+//-------------------------[Time Delay]-----------------------------//
+//--------------------------------------------------------------------//
+//--------------------------------------------------------------------//
+	.@time_delay = 12*60*60;
+	if( ""+getarg(0) == "-3" || !playerattached() )
+		return ""+.@time_delay;
+//--------------------------------------------------------------------//
+//--------------------------------------------------------------------//
+	explode(@job_info$, exp_myjob$, ",");
+	if( @job_info$[0] == "" )
+	{
+		mes "Sorry, you don't have job";
+		close2;
+		return "NULL[1]";
+	}
+//--------------------------------------------------------------------//
+//--------------------------------------------------------------------//
+//-----------------------[Item Required]---------------------------//
+//--------------------------------------------------------------------//
+//--------------------------------------------------------------------//
+	if( @job_info$[0] == "Fisherman" )
+	{
+		setarray .@item_need, 1101, 1201, 1301;	//Rod item id
+		setarray .@item_level, 1, 5, 10;	//Rod level
+		setarray .@item_cast, 40, 20, 10; //Cast time
+	}
+	else if( @job_info$[0] == "Miner" )
+	{
+		;
+	}
+	else if( @job_info$[0] == "Farmer" )
+	{
+		;
+	}
+	else
+	{
+		mes "Non-defined Job";
+		close2;
+		return "NULL[3]";
+	}
+//--------------------------------------------------------------------//
+//--------------------------------------------------------------------//
+//------------------------[Exp for Level]----------------------------//
+//--------------------------------------------------------------------//
+//--------------------------------------------------------------------//
+	setarray .@exp[1],1,2,3,5,8,13,21,34,55,89,144,233,377,610,987,1597,2584,4181,6765,10946;
+//--------------------------------------------------------------------//
+//--------------------------------------------------------------------//
+	if( ""+getarg(0) == "-1" && atoi(@job_info$[1]) > 0 )
+	{
+		if( atoi(@job_info$[1]) > getarraysize(.@exp) )
+			return "-1";
+		else
+			return ""+.@exp[atoi(@job_info$[1])];
+	}
+	if( ""+getarg(0) == "-2" && (.@ld = atoi(""+getarg(1,0))) >= 0 )
+	{
+		if( .@item_need[.@ld] == 0 )
+			return "";
+		else
+			return ""+.@item_need[.@ld]+","+.@item_cast[.@ld]+","+.@item_level[.@ld];
+	}
+	setarray .@exp_myjob$[1],"Fisherman","Miner","Farmer";
+	if( .@exp_myjob$[atoi(""+getarg(0,0))] != @job_info$[0] )
+	{
+		mes "Wrong Job";
+		mes "This is for ["+.@exp_myjob$[atoi(""+getarg(0,0))]+"]";
+		close2;
+		return "NULL[2]";
+	}
+	.@num = getarraysize(.@item_need);
+	if( .@num == 0 )
+	{
+		mes "Non-defined required";
+		close2;
+		return "NULL[4]";
+	}
+	.@do = 0;
+	for(.@i = 0; .@i < .@num; .@i++)
+		if( getequipid(4) == .@item_need[.@i] && atoi(""+@job_info$[1]) >= .@item_level[.@i] )
+		{
+			.@do = .@i+1;
+			break;
+		}
+	if( .@do == 0 )
+	{
+		mes "You don't have what you need.";
+		mes "Your Level: "+@job_info$[1];
+		mes "You're using: "+getitemname(getequipid(4));
+		close2;
+		return "NULL[5]";
+	}
+	query_sql "SELECT `time` FROM `exp_jobtime` WHERE `location` = '"+escape_sql(getarg(1))+"' AND `char_id` = "+getcharid(0), .@time;
+	if( gettimetick(2)-.@time < .@time_delay )
+	{
+		mes "This spot is empty, try again later";
+		close2;
+		return "NULL[6]";
+	}
+	if( prompt("Start","Cancel") != 1 )
+	{
+		mes "Cancel";
+		close2;
+		return "NULL[7]";
+	}
+	@do = .@do-1;
+	if( .@time > 0 )
+		query_sql "UPDATE `exp_jobtime` SET `time` = "+(gettimetick(2)+.@item_cast[@do])+" WHERE `location` = '"+escape_sql(getarg(1))+"' AND `char_id` = "+getcharid(0);
+	else
+		query_sql "INSERT INTO `exp_jobtime` VALUES('"+escape_sql(getarg(1))+"',"+getcharid(0)+","+(gettimetick(2)+.@item_cast[@do])+")";
+	mes "[Wait for "+.@item_cast[@do]+"s]";
+	sleep2 (.@item_cast[@do])*1000;
+	@job_info$[2] = ""+(atoi(@job_info$[2])+1);
+	query_sql "UPDATE `rank_job` SET `point` = `point`+1 WHERE `char_id` = "+getcharid(0);
+	.@lv = atoi(""+@job_info$[1]);
+	if( atoi(@job_info$[2]) >= .@exp[.@lv] )
+	{
+		@job_info$[1] = ""+(atoi(@job_info$[1])+1);
+		if( atoi(@job_info$[1]) > getarraysize(.@exp) )
+		{
+			@job_info$[2] = "-1";
+			@job_info$[1] = getarraysize(.@exp);
+		}
+	}
+	mes "Exp+1";
+	.@level = atoi(@job_info$[1]);
+	.@rodlevel = @do+1;
+	@do = 0;
+//--------------------------------------------------------------------//
+//--------------------------------------------------------------------//
+//---------------------------[Item Reward]-------------------------//
+//--------------------------------------------------------------------//
+//--------------------------------------------------------------------//
+	if( @job_info$[0] == "Fisherman" )
+	{
+		if( .@level == 1 && .@rodlevel == 1 )// If player level is 1 and rod level is 1
+		{
+			getitem 501,1;
+		}else if( .@level > 1 && .@level <= 3 && .@rodlevel == 1 )// If player level is 2~3 and rod level is 1
+		{
+			getitem 502,1;
+		}else
+		{
+			getitem 503,1;
+		}
+	}
+	else if( @job_info$[0] == "Miner" )
+	{
+		;
+	}
+	else if( @job_info$[0] == "Farmer" )
+	{
+		;
+	}
+	else
+	{
+		mes "Non-defined Job";
+		close2;
+		return "NULL[3]";
+	}
+//--------------------------------------------------------------------//
+//--------------------------------------------------------------------//
+//--------------------------------------------------------------------//
+	exp_myjob$ = implode(@job_info$,",");
+	deletearray @job_info$[0],getarraysize(@job_info$);
+	close2;
+	return "";
+}
+prontera,150,180,4	script	Job Manager	100,{
+	mes "May I help you?";
+	setarray .@exp_myjob$[0],"Fisherman","Miner","Farmer";
+	switch(select("Rank","Watch my info","Buy something","Choose my job"))
+	{
+		case 1:
+			next;
+			mes "Select job";
+			.@select$ = .@exp_myjob$[(@do=select(implode(.@exp_myjob$,":")))-1];			
+			next;
+			mes "["+.@select$+"]";
+			query_sql "SELECT `char_id`,`point` FROM `rank_job` WHERE `point` > 0 AND `job` = "+@do+" ORDER BY `point` DESC",.@JOBB_CHARID,.@JOBB_POINT;
+			.@num = getarraysize(.@JOBB_CHARID);
+			.@num = .@num > 10 ? 10 : .@num;
+			if( .@num <= 0 )
+				mes "NULL";
+			else
+			{
+				for(.@i = 0; .@i < .@num; .@i++)
+				{
+					if( .@JOBB_CHARID[.@i] )
+					{
+						.@name$ = "";
+						query_sql "SELECT `name` FROM `char` WHERE `char_id` = "+.@JOBB_CHARID[.@i]+"",.@name$;
+						mes "["+.@name$+"] ["+.@JOBB_POINT[.@i]+"]";
+					}
+				}
+			}
+			@do = 0;
+			close;
+		case 2:
+			if( exp_myjob$ == "" )
+			{
+				next;
+				mes "Sorry, you don't have job";
+				close;
+			}
+			next;
+			deletearray @job_info$[0],getarraysize(@job_info$);
+			explode(@job_info$, exp_myjob$, ",");
+			mes "Job:["+@job_info$[0]+"]";
+			mes "Level:["+@job_info$[1]+"]";
+			.@ans$ = callfunc("Job_Manager_Main_Func",-1);
+			mes "Exp:["+@job_info$[2]+"\\"+.@ans$+"]";
+			deletearray @job_info$[0],getarraysize(@job_info$);
+			close;
+		case 3:
+			if( exp_myjob$ == "" )
+			{
+				next;
+				mes "Sorry, you don't have job";
+				close;
+			}
+			deletearray @job_info$[0],getarraysize(@job_info$);
+			explode(@job_info$, exp_myjob$, ",");
+			for(.@i = 0; ; .@i++)
+			{
+				if( (.@ans$[.@i] = callfunc("Job_Manager_Main_Func",-2, .@i)) == "" )
+					break;
+			}
+			deletearray @job_info$[0],getarraysize(@job_info$);
+			next;
+			mes "Item ID, Cast Time, Required Level";
+			if( (.@do = select(implode(.@ans$,":"))) )
+			{
+				deletearray @item_buy$[0], getarraysize(@item_buy$);
+				explode(@item_buy$, .@ans$[.@do-1], ",");
+				getitem atoi(@item_buy$[0]),1;
+				deletearray @item_buy$[0], getarraysize(@item_buy$);
+			}
+			close;
+		case 4:
+			if( exp_myjob$ != "" )
+			{
+				next;
+				mes "Sorry, you already had one";
+				close;
+			}
+			next;
+			mes "Select your job";
+			@select$ = .@exp_myjob$[(@do=select(implode(.@exp_myjob$,":")))-1];
+			next;
+			mes "You want to be ["+@select$+"], right?";
+			if( prompt("No","Yes") != 2 )
+			{			
+				@do = 0;
+				@select$ = 0;
+				close;
+			}
+			exp_myjob$ = ""+@select$+",1,0";
+			query_sql "INSERT INTO `rank_job` VALUES("+getcharid(0)+","+@do+",0)";
+			@do = 0;
+			@select$ = 0;
+			next;
+			mes "Done";
+			close;
+	}
+OnInit:
+	.time_delay = atoi(callfunc("Job_Manager_Main_Func",-3));
+	query_sql "CREATE TABLE IF NOT EXISTS `rank_job` ( `char_id` int(11) NOT NULL default '0', `job` tinyint(3) NOT NULL default '0', `point` int(11) NOT NULL default '0' ) ENGINE=MyISAM;";
+	query_sql "CREATE TABLE IF NOT EXISTS `exp_jobtime` ( `location` varchar(255) NOT NULL default '', `char_id` int(11) NOT NULL default '0', `time` int(11) NOT NULL default '0' ) ENGINE=MyISAM;";
+	query_sql "DELETE FROM `exp_jobtime` WHERE ("+gettimetick(2)+"-`time`) > "+.time_delay;
+	end;
+}
+-	script	Job_Loacation_Main#Event	-1,{
+	if( compare(strnpcinfo(2),"_a1") )
+		.@job = 1;
+	else if( compare(strnpcinfo(2),"_a2") )
+		.@job = 2;
+	else if( compare(strnpcinfo(2),"_a3") )
+		.@job = 3;
+	else
+		.@job = 0;
+	if( .@job == 0 )
+		end;
+	getmapxy(.@map$,.@x,.@y,1,strnpcinfo(0));
+	.@ans$ = callfunc("Job_Manager_Main_Func",.@job,.@map$+","+.@x+","+.@y);
+	end;
+}
+prontera,157,180,4	duplicate(Job_Loacation_Main#Event)	Fish#fjbnsdbnpb_a1	858
+prontera,155,180,4	duplicate(Job_Loacation_Main#Event)	Fish#fjbnsdbnpb01_a1	858
+prontera,159,180,4	duplicate(Job_Loacation_Main#Event)	Miner#sdfbvdfbde_a2	858
+prontera,161,180,4	duplicate(Job_Loacation_Main#Event)	Farmer#ddddd_a3	858
